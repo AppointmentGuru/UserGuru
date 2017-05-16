@@ -17,7 +17,8 @@
     "vue": "^2.2.6",
     "vue-router": "^2.3.1",
     "vuetify": "^0.11.1",
-    "vuex-requests": "git+ssh://git@github.com/AppointmentGuru/VuexRequests.git"
+    "vuex": "^2.3.1",
+    "vuex-requests": "https://components.appointmentguru.co/vuex-requests/vuex-requests-0.0.2.tgz"
   },
   "devDependencies": {
     "autoprefixer": "^6.7.2",

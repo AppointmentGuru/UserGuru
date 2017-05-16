@@ -1,16 +1,15 @@
 <template>
-<v-card class="grey lighten-4 elevation-0">
+<v-card class="grey lighten-4" >
   <v-card-text>
     <v-container fluid>
       <v-row row>
-        <v-col xs4>
+        <v-col xs11>
           <v-text-field
             name="id-phonenumber"
             label="Phone number"
             hint="Make sure to add the country code. e.g.: +27831234567"
             v-model="user.phoneNumber"
-            @input='checkPhoneLength'
-          >
+            @input='checkPhoneLength' >
           </v-text-field>
         </v-col>
         <v-col xs1 >
@@ -23,11 +22,18 @@
       </v-row>
     </v-container>
 
+    <!-- pls login -->
     <transition-group name='fade' >
-    <v-container v-if='nextStep === "token-auth"' fluid>
+    <v-container
+      v-if='nextStep === "token-auth"'
+      fluid key='token-auth'>
+      <v-progress-circular
+        v-show='requestIsLoading(loginRequest)'
+        indeterminate class="primary--text pull-right" />
+      </v-progress-circular >
       <h5>{{loginHeader}}</h5>
       <v-row row >
-        <v-col xs4>
+        <v-col xs12>
           <v-text-field
             type="password"
             name="token-password"
@@ -38,12 +44,75 @@
       </v-row>
     </v-container>
     </transition-group>
+
+    <!-- pls register -->
+    <transition-group name='fade' >
+    <v-container
+      v-if='nextStep === "auth-register"'
+      fluid key='auth-register'>
+
+      <v-progress-circular
+        v-show='requestIsLoading(registerRequest)'
+        indeterminate class="primary--text pull-right" />
+      </v-progress-circular >
+      <h5>{{createAccountHeader}}</h5>
+
+      <v-row row >
+        <v-col xs12 >
+          <v-text-field
+            name="reg-fullName"
+            label="full name"
+            hint='Your first and last names please'
+            v-model="user.fullName" >
+          </v-text-field>
+        </v-col>
+      </v-row><v-row row >
+        <v-col xs12 >
+          <v-text-field
+            name="reg-email"
+            label="e-mail address"
+            v-model="user.email" >
+          </v-text-field>
+        </v-col>
+      </v-row><v-row row >
+        <v-col xs12 >
+          <v-text-field
+            name="reg-phone"
+            label="pick a password"
+            min='8'
+            hint='You can make your password stronger by including numbers(1234) and special characters(!@#$)'
+            type='password'
+            :rules="rules.password"
+            v-model="user.password" >
+          </v-text-field>
+        </v-col>
+      </v-row>
+    </v-container>
+    </transition-group>
+
+    <transition-group name='fade' >
+      <v-container
+        v-show='nextStep === "auth-otp" || showOTP === true'
+        fluid key='auth-otp' >
+        <h5>{{otpHeader}}</h5>
+        <v-row row >
+          <v-col xs12 >
+            <v-text-field
+              name="otp"
+              label="OTP"
+              hint='We sent a one-time pin to the number you entered above. Please check SMSes on your phone and enter that code above'
+              @input='checkOTPLength' v-model='user.otp' >
+            </v-text-field>
+          </v-col>
+        </v-row>
+      </v-container>
+    </transition-group>
+
   </v-card-text>
 
   <v-card-row actions>
-    <v-btn flat class="green--text darken-1">Next</v-btn>
+    <v-btn @click.native.stop="login" primary >Next</v-btn>
   </v-card-row>
-  <pre>{{identifyRequest}}</pre>
 </v-card>
 </template>
 
@@ -67,20 +136,37 @@ export default {
     loginHeader: { type: String, default: 'Please login' }
   },
   data () {
+    let vm = this
     return {
       showOTP: false,
       showSetPassword: false,
       user: {
-        phoneNumber: '+27'
+        phoneNumber: '+27',
+        password: ''
+      },
+      rules: {
+        password: [
+          () => {
+            if (vm.user.password.length < 8) {
+              return 'Password should be at least 8 characters'
+            } else {
+              return true
+            }
+          }
+        ]
       }
     }
   },
   watch: {
+    identifyRequest () {
+      console.log('id request changed')
+    },
     loginRequestStatus () {
       if (this.loginRequestStatus === 200) {
         let token = this.loginRequest.result.data.token
+        console.log(token)
         this.setToken(token)
-        this.$emit('whoami:loggedin')
+        this.$emit('whoami:loggedin', token)
       }
     },
     validateOtpRequestStatus () {
@@ -99,7 +185,7 @@ export default {
       if (this.registerRequestStatus === 200) {
         let token = this.registerRequest.result.data.token
         this.setToken(token)
-        this.$emit('whoami:registered')
+        this.$emit('whoami:registered', token)
       }
     }
   },
@@ -108,7 +194,7 @@ export default {
       this.$requeststore.requests.requests
     },
     identifyRequest () {
-      return this.$requeststore.getters.getRequestById(ID_REQUEST)
+      return this.$requeststore.getters.getRequestById('auth-identify-request')
     },
     loginRequest () {
       return this.$requeststore.getters.getRequestById(LOGIN_REQUEST)
@@ -228,4 +314,10 @@ export default {
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
 .flat{margin:0px;}
+.fade-enter-active, .fade-leave-active {
+  transition: opacity .7s
+}
+.fade-enter, .fade-leave-to /* .fade-leave-active in <2.1.8 */ {
+  opacity: 0
+}
 </style>
