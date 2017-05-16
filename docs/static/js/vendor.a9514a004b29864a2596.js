@@ -18939,7 +18939,7 @@ if (typeof window !== 'undefined' && window.Vue) {
 class AppointmentGuruBackend extends __WEBPACK_IMPORTED_MODULE_0__API__["a" /* default */] {
   constructor (name = 'appointmentguru', options = {}) {
     super(name)
-    this.baseUrl = "https://api.appointmentguru.co/api"
+    this.baseUrl = "https://api.appointmentguru.co"
     this.headers = { 'Content-Type': 'application/json' }
   }
   endpoints () { // endpoints are simple GET only requests
@@ -22611,12 +22611,12 @@ module.exports = function listToStyles (parentId, list) {
 
 
 // application validations:
-if (!__webpack_require__.i({"NODE_ENV":"production","APPOINTMENTGURU_API_ROOT":"https://api.appointmentguru.co/api"}).API_ROOT) {
+if (!__webpack_require__.i({"NODE_ENV":"production","APPOINTMENTGURU_API_ROOT":"https://api.appointmentguru.co"}).API_ROOT) {
   console.warn('No API route defined. Please set API route in config/dev.env.js')
 }
 
 let http = __WEBPACK_IMPORTED_MODULE_0_axios___default.a.create({
-  baseURL: __webpack_require__.i({"NODE_ENV":"production","APPOINTMENTGURU_API_ROOT":"https://api.appointmentguru.co/api"}).API_ROOT,
+  baseURL: __webpack_require__.i({"NODE_ENV":"production","APPOINTMENTGURU_API_ROOT":"https://api.appointmentguru.co"}).API_ROOT,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -24108,4 +24108,4 @@ function applyToTag (styleElement, obj) {
 
 /***/ })
 ]);
-//# sourceMappingURL=vendor.c574e449667e3d093711.js.map
+//# sourceMappingURL=vendor.a9514a004b29864a2596.js.map
