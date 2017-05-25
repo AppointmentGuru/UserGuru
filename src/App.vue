@@ -28,6 +28,8 @@
         </user-list-item>
         <v-divider inset ></v-divider>
       </v-list>
+
+      <pre>{{user}}</pre>
     </div>
     <br/>
   </div>
