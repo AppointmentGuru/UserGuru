@@ -7,7 +7,7 @@
     <div style="text-align:center;">
     <v-avatar style='padding-left:40px;'>
       <img
-        v-if='user.profile.profile_picture'
+        v-if='user.profile && user.profile.profile_picture'
         style='width:150px;height:150px;'
         :src="user.profile.profile_picture" />
       <img v-else

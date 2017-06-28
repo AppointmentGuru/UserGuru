@@ -1,5 +1,10 @@
 <template>
 <v-card class="grey lighten-4" >
+  <v-card-row class="orange">
+    <v-card-title>
+        <span class="white--text">Please login</span>
+    </v-card-title>
+  </v-card-row>
   <v-card-text>
     <v-container fluid>
       <v-row row>
@@ -8,6 +13,8 @@
             name="id-phonenumber"
             label="Phone number"
             hint="Make sure to add the country code. e.g.: +27831234567"
+            persistent-hint
+            type='tel'
             v-model="user.phoneNumber"
             @input='checkPhoneLength' >
           </v-text-field>
@@ -32,6 +39,7 @@
         indeterminate class="primary--text pull-right" />
       </v-progress-circular >
       <h5>{{loginHeader}}</h5>
+      <v-alert warning :value='loginRequestStatus === 401 && !showOTP' >Login failed. please check your phone number and password</v-alert>
       <v-row row >
         <v-col xs12>
           <v-text-field
@@ -40,6 +48,11 @@
             label="Password"
             v-model="user.password" >
           </v-text-field>
+        </v-col>
+      </v-row>
+      <v-row row >
+        <v-col xs12>
+        <v-btn @click.native.stop='forgotPasswordOTP' flat >Forgot password</v-btn>
         </v-col>
       </v-row>
     </v-container>
@@ -56,7 +69,14 @@
         indeterminate class="primary--text pull-right" />
       </v-progress-circular >
       <h5>{{createAccountHeader}}</h5>
-
+      <v-alert
+        warning :value='registerRequestStatus === 400' >
+        There was an issue with your request. Please make sure you've fill out all the fields
+      </v-alert>
+      <v-alert
+        v-for='error in registerRequestServerErrors'
+        :key='error'
+        warning :value='true' >{{error}}</v-alert>
       <v-row row >
         <v-col xs12 >
           <v-text-field
@@ -71,7 +91,8 @@
           <v-text-field
             name="reg-email"
             label="e-mail address"
-            v-model="user.email" >
+            v-model="user.email"
+            :rules="rules.email" >
           </v-text-field>
         </v-col>
       </v-row><v-row row >
@@ -90,19 +111,60 @@
     </v-container>
     </transition-group>
 
+    <!-- OTP -->
     <transition-group name='fade' >
       <v-container
         v-show='nextStep === "auth-otp" || showOTP === true'
         fluid key='auth-otp' >
         <h5>{{otpHeader}}</h5>
+        <v-subheader v-if='forgotPasswordRequestStatus!==-1 && forgotPasswordRequestStatus.loading' >
+          <v-progress-circular indeterminate class="primary--text" style='width:15px;height:15px;'></v-progress-circular> Sending OTP
+        </v-subheader>
         <v-row row >
           <v-col xs12 >
             <v-text-field
               name="otp"
               label="OTP"
-              hint='We sent a one-time pin to the number you entered above. Please check SMSes on your phone and enter that code above'
-              @input='checkOTPLength' v-model='user.otp' >
+              type='tel'
+              hint='We sent a one-time pin to the number you entered above. Please check SMSes on your phone and enter that code here'
+              persistent-hint
+              @input='checkOTPLength' v-model='user.otp' autocomplete="off" >
             </v-text-field>
+          </v-col>
+        </v-row>
+        <v-row row >
+          <v-col xs12 >
+            <!-- v-if='validateOtpRequest !== -1 && validateOtpRequest.loading' -->
+            <div v-if='validateOtpRequest !== -1 && validateOtpRequest.loading' >
+              <v-progress-circular indeterminate class="primary--text" style='width:15px;height:15px;'></v-progress-circular> Validating OTP
+            </div>
+            <div v-if='validateOtpRequestStatus === 400' >
+              <v-icon style='font-size:15px;' >warning</v-icon>
+              OTP validation failed. Please try again.
+              <v-btn @click.native.stop='forgotPasswordOTP' flat >Send another OTP</v-btn>
+            </div>
+          </v-col>
+        </v-row>
+        <v-row v-if='showSetPassword' row >
+          <v-row>
+            <v-subheader>Please select a new password</v-subheader>
+          </v-row>
+          <v-col xs6 >
+            <v-text-field
+              name="reg-phone"
+              label="new password"
+              min='8'
+              hint='You can make your password stronger by including numbers(1234) and special characters(!@#$)'
+              type='password'
+              :rules="rules.password"
+              v-model="user.password" >
+            </v-text-field>
+          </v-col>
+          <v-col xs6 >
+            <v-btn
+              @click.native.stop='setPassword'
+              :loading="setPasswordRequest!==-1 && setPasswordRequest.loading"
+              flat style='margin-top:15px;' >Set password</v-btn>
           </v-col>
         </v-row>
       </v-container>
@@ -111,7 +173,7 @@
   </v-card-text>
 
   <v-card-row actions>
-    <v-btn @click.native.stop="login" primary >Next</v-btn>
+    <v-btn @click.native.stop="next" primary >{{actionButtonText}}</v-btn>
   </v-card-row>
 </v-card>
 </template>
@@ -122,6 +184,7 @@ const LOGIN_REQUEST = 'auth-login-request'
 const OTP_AUTH_REQUEST = 'auth-validate-otp'
 const SET_PASSWORD_REQUEST = 'auth-set-password'
 const REGISTER_REQUEST = 'auth-register'
+const FORGOT_PASSWORD_REQUEST = 'auth-forgot-password'
 
 import Mixins from 'vuex-requests/src/store/mixins'
 
@@ -130,16 +193,18 @@ export default {
   mixins: [Mixins],
   props: {
     initialData: { type: Object, default: () => { return {} } },
-    otpHeader: { type: String, default: 'Please enter your OTP' },
+    otpHeader: { type: String, default: 'Please provide the OTP sent to the cell number above' },
     createPasswordHeader: { type: String, default: 'Please choose a password' },
     createAccountHeader: { type: String, default: 'Tell us a little about yourself' },
-    loginHeader: { type: String, default: 'Please login' }
+    loginHeader: { type: String, default: 'Please login' },
+    isPractitionerSignup: { type: Boolean, default: true }
   },
   data () {
     let vm = this
     return {
       showOTP: false,
       showSetPassword: false,
+      token: null,
       user: {
         phoneNumber: '+27',
         password: ''
@@ -164,7 +229,6 @@ export default {
     loginRequestStatus () {
       if (this.loginRequestStatus === 200) {
         let token = this.loginRequest.result.data.token
-        console.log(token)
         this.setToken(token)
         this.$emit('whoami:loggedin', token)
       }
@@ -178,7 +242,8 @@ export default {
     },
     setPasswordRequestStatus () {
       if (this.setPasswordRequestStatus === 200) {
-        this.$emit('whoami:loggedin')
+        this.$emit('whoami:loggedin', this.token)
+        this.$emit('whoami:passwordchanged')
       }
     },
     registerRequestStatus () {
@@ -224,6 +289,30 @@ export default {
       let r = this.registerRequest
       if (r === -1) { return 0 } else { return r.status }
     },
+    registerRequestServerErrors () {
+      let err = []
+      if (this.registerRequestStatus === 400) {
+        if (this.registerRequest.result &&
+            this.registerRequest.result.data) {
+          let data = this.registerRequest.result.data
+          let fields = ['phone_number', 'email', 'password1', 'first_name', 'last_name']
+          for (let field of fields) {
+            if (data[field]) {
+              let message = data[field]
+              err.push(`${field}: ${message}`)
+            }
+          }
+        }
+      }
+      return err
+    },
+    forgotPasswordRequest () {
+      return this.$requeststore.getters.getRequestById(FORGOT_PASSWORD_REQUEST)
+    },
+    forgotPasswordRequestStatus () {
+      let r = this.forgotPasswordRequest
+      if (r === -1) { return 0 } else { return r.status }
+    },
     nextStep () {
       if (this.identifyRequest !== -1) {
         if (this.identifyRequest.result && this.identifyRequest.result.data) {
@@ -231,6 +320,18 @@ export default {
         }
       }
       return null
+    },
+    actionButtonText () {
+      if (this.token) {
+        return 'Continue to app'
+      }
+      if (this.nextStep === 'token-auth') {
+        return 'Login'
+      }
+      if (this.nextStep === 'auth-register' ) {
+        return 'Sign up'
+      }
+      return 'Next'
     }
   },
   methods: {
@@ -253,6 +354,19 @@ export default {
         this.validateOTP()
       }
     },
+    next () {
+      console.log(this.nextStep)
+      if (this.token) {
+        this.$emit('whoami:loggedin', this.token)
+        return true
+      }
+      if (this.nextStep === 'token-auth') {
+        this.login()
+      }
+      if (this.nextStep === 'auth-register' ) {
+        this.performRegistration()
+      }
+    },
     login () {
       let options = {
         id: LOGIN_REQUEST,
@@ -263,6 +377,16 @@ export default {
       }
       this.$appointmentguru
         .endpoint('auth-login-phone', options)
+    },
+    forgotPasswordOTP () {
+      this.showOTP = true
+      let options = {
+        id: FORGOT_PASSWORD_REQUEST,
+        data: {
+          phone_number: this.user.phoneNumber
+        }
+      }
+      this.$appointmentguru.endpoint('auth-forgot-password', options)
     },
     validateOTP () {
       let options = {
@@ -275,6 +399,7 @@ export default {
       this.$appointmentguru.endpoint('auth-validate-otp', options)
     },
     setToken (token) {
+      this.token = token
       let data = [
         this.$appointmentguru.name,
         'Authorization',
@@ -291,8 +416,10 @@ export default {
           password2: this.user.password,
           full_name: this.user.fullName,
           email: this.user.email,
-          is_practitioner: true
         }
+      }
+      if (this.isPractitionerSignup) {
+        options.data['is_practitioner'] = true
       }
       this.$appointmentguru
         .endpoint('auth-register', options)
@@ -313,6 +440,7 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+.container--fluid { margin-top:0px; }
 .flat{margin:0px;}
 .fade-enter-active, .fade-leave-active {
   transition: opacity .7s
